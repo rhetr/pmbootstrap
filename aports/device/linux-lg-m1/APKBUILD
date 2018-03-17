@@ -1,0 +1,95 @@
+# Kernel config based on: arch/arm/configs/(CHANGEME!)
+
+pkgname="linux-lg-m1"
+pkgver=3.10.49
+pkgrel=0
+pkgdesc="LG K7 kernel fork"
+arch="armhf"
+_carch="arm"
+_flavor="lg-m1"
+url="https://kernel.org"
+license="GPL2"
+options="!strip !check !tracedeps"
+makedepends="perl sed installkernel bash gmp-dev bc linux-headers elfutils-dev dtbtool"
+HOSTCC="${CC:-gcc}"
+HOSTCC="${HOSTCC#${CROSS_COMPILE}}"
+
+# Source
+_repository="android_kernel_lge_msm8909"
+_commit="017ab2a9067360f82d660dab7b08ce7e277c1cdb"
+_config="config-${_flavor}.${arch}"
+source="
+	$pkgname-$_commit.tar.gz::https://github.com/TheOddTaco/${_repository}/archive/${_commit}.tar.gz
+	$_config
+	compiler-gcc6.h
+	00_fix_return_address.patch
+	static-inline.patch
+	driver-fix.patch
+"
+builddir="$srcdir/${_repository}-${_commit}"
+
+prepare() {
+	default_prepare
+
+	# gcc6 support
+	cp -v "$srcdir/compiler-gcc6.h" "$builddir/include/linux/"
+
+	# Remove -Werror from all makefiles
+	local i
+	local makefiles="$(find . -type f -name Makefile)
+		$(find . -type f -name Kbuild)"
+	for i in $makefiles; do
+		sed -i 's/-Werror-/-W/g' "$i"
+		sed -i 's/-Werror//g' "$i"
+	done
+
+	# Prepare kernel config ('yes ""' for kernels lacking olddefconfig)
+	cp "$srcdir"/$_config "$builddir"/.config
+	yes "" | make ARCH="$_carch" HOSTCC="$HOSTCC" oldconfig
+}
+
+menuconfig() {
+	cd "$builddir"
+	make ARCH="$_carch" menuconfig
+	cp .config "$startdir"/$_config
+}
+
+build() {
+	unset LDFLAGS
+	make ARCH="$_carch" CC="${CC:-gcc}" \
+		KBUILD_BUILD_VERSION="$((pkgrel + 1 ))-postmarketOS"
+
+	# Generate master DTB (deviceinfo_bootimg_qcdt)
+	dtbTool -s 2048 -p "scripts/dtc/" -o "arch/arm/boot/dt.img" "arch/arm/boot/"
+}
+
+package() {
+	# kernel.release
+	install -D "$builddir/include/config/kernel.release" \
+		"$pkgdir/usr/share/kernel/$_flavor/kernel.release"
+
+	# zImage (find the right one)
+	cd "$builddir/arch/$_carch/boot"
+	_target="$pkgdir/boot/vmlinuz-$_flavor"
+	for _zimg in zImage-dtb Image.gz-dtb *zImage Image; do
+		[ -e "$_zimg" ] || continue
+		msg "zImage found: $_zimg"
+		install -Dm644 "$_zimg" "$_target"
+		break
+	done
+	if ! [ -e "$_target" ]; then
+		error "Could not find zImage in $PWD!"
+		return 1
+	fi
+
+	# Master DTB (deviceinfo_bootimg_qcdt)
+	install -Dm644 "$builddir/arch/arm/boot/dt.img" \
+		"$pkgdir/boot/dt.img"
+}
+
+sha512sums="2c7dfa33d737d37541f78cddc915b79fa55f4e1444f1e26b427017cdbc71081d2b03a84fabf55f805bd529523ec509ec0b0d104f5b331108f3eb06ceae341991  linux-lg-m1-017ab2a9067360f82d660dab7b08ce7e277c1cdb.tar.gz
+04b5f2f45d88851a2e5a501e1ecb00bcc3cc7efc5da2abc6e459d641dce2ca1b861eccf5d4ab3df9e3d8578855dadd36f2e17dd783c7a5d3ae95358c9aa78fc4  config-lg-m1.armhf
+d80980e9474c82ba0ef1a6903b434d8bd1b092c40367ba543e72d2c119301c8b2d05265740e4104ca1ac5d15f6c4aa49e8776cb44264a9a28dc551e0d1850dcc  compiler-gcc6.h
+ea1d3b5a234fa565e3c1a792de48f4fc4e6023d281d303c8e319c7ef28edc5739ab0e4dea0139a41f0a5c7d03e27921ccaa214fd0ac5c72245a094ce60128864  00_fix_return_address.patch
+ad77ff2bea83e603bfdbd6bdae7a15f8e8d4a4a005a6ad26b6d8872767bb80b41cc2c0df228d6978ad0bd9e84486bea98a178478b93948e3e37794755e136bd6  static-inline.patch
+64060a1b42743b398feb7b9b05259ff5bc8a3607c9e357d9c1f57c9c0994b433a2fc0c2697a34c71b78ca4096f06ef18e1f5575c4a6a3e93d3c39066ee88d418  driver-fix.patch"

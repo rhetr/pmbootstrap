@@ -1,0 +1,23 @@
+# Reference: <https://postmarketos.org/devicepkg>
+pkgname="device-lg-m1"
+pkgdesc="LG K7"
+pkgver=0.1
+pkgrel=0
+url="https://postmarketos.org"
+license="MIT"
+arch="noarch"
+options="!check"
+depends="postmarketos-base linux-lg-m1 mkbootimg mesa-dri-swrast"
+makedepends="devicepkg-dev"
+source="deviceinfo"
+
+build() {
+	devicepkg_build $startdir $pkgname
+}
+
+package() {
+	devicepkg_package $startdir $pkgname
+}
+
+sha512sums="(run 'pmbootstrap checksum device-lg-m1' to fill)"
+
