@@ -7,7 +7,7 @@ url="https://postmarketos.org"
 license="MIT"
 arch="noarch"
 options="!check"
-depends="postmarketos-base linux-lg-m1 mkbootimg mesa-dri-swrast"
+depends="postmarketos-base linux-lg-m1 mkbootimg mesa-dri-swrast msm-fb-refresher"
 makedepends="devicepkg-dev"
 source="deviceinfo"
 
@@ -19,5 +19,4 @@ package() {
 	devicepkg_package $startdir $pkgname
 }
 
-sha512sums="(run 'pmbootstrap checksum device-lg-m1' to fill)"
-
+sha512sums="d390134e06f5a2550a1acb9008589486bc485fd169d0340613fe7d83e649cf8cdd1cfc2d82d3f242879056354a693284d486fb208b700dfe00a164a3c4f3aa6b  deviceinfo"
